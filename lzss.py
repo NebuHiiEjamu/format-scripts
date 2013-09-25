@@ -1,0 +1,1 @@
+MAGIC = b'sszl'
