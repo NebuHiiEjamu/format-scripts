@@ -1,6 +1,6 @@
 import struct
 
-MAGIC = 0x10000000 # 4 bytes, second byte is version, only ver. 0 known to exist
+MAGIC = b'\x10\x00\x00\x00' # 4 bytes, second byte is version, only ver. 0 known to exist
 
 BPP4 = 0x08 # 4 bits paletted
 BPP8 = 0x09 # 8 bits paletted
