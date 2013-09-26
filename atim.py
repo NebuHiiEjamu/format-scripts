@@ -1,3 +1,9 @@
+"""
+This is the altered TIM image format found in Chrono Cross for PSX.
+
+Implemented according to http://triple-tech.org/Wiki/Atim
+"""
+
 # incomplete because of unknown interspersed values in CLUT
 import struct
 

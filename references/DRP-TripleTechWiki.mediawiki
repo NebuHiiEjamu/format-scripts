@@ -1,0 +1,178 @@
+'''1. Introduction'''
+
+Like many other games, Chrono Cross just loves to compact disparate types of data
+into single files of a proprietary design. To be exact, CC has at least three separate
+types of "data lump" files, each with a different internal schema:
+
+-The drp file, which begins with the ASCII letters "drp" and almost always contains
+visual or audio resources. The more I see of these, the more I think that Magil was
+correct in his speculation that the letters stand for "Dynamic Resource Pack".
+
+-The tbt file, used only for text
+
+-The cpt file, which is used for everything else (or in some cases, wherever the Squeenix
+dev team decided they wanted to)
+
+What I'm going to talk about here is the drp filetype, which probably has the most complex
+internal structure.
+
+'''2. Structure of a drp'''
+
+A drp file contains a 12-byte header, a series of internal file pointers, and then a glob
+of files, each with its own individual 12-byte header. Here's a typical drp overall file header:
+
+64 72 70 00 00 00 00 00 xx yy 00 00
+
+The first three bytes spell out "drp" in ASCII. The other two non-zero bytes indicate the
+number of entries in the file, although unfortunately, not in an entirely straightforward
+manner (even when endianness is taken into consideration)&mdash;to get the number, perform the
+calculation yyxx / 64. We'll call this number ''num'' from now on.
+
+After the header, the drp will provide ''num'' pointers to the beginnings of the files
+inside the lump. These pointers are 4 bytes each, little-endian (that is, with the byte
+order reversed from what the naive viewer will expect), and indicate an offset based on
+the beginning of the file. There is no end-of-file pointer.
+
+Each subfile in the lump has a 12-byte header of its own. Here's a typical one:
+
+00 00 00 00 nn aa mm ee tt xx yy zz
+
+The bytes nn aa mm ee give a four-letter ASCII version of what appears to be the name
+of the file. If the chosen name is less than four characters long, it will be padded
+with 00 bytes. Filenames contain numbers, lower-case letters, and the following symbols:
+_-+></=! As I found out the hard way, some of these are not legal filename characters on
+all file systems.
+
+tt is the file type indicator, of which more later.
+
+xx yy zz are a little-endian equal to 16 times the length of the file.
+
+The data for the file begins immediately after the end of the header and runs until the
+header for the next file in the lump (that is, the address pointed to by the next pointer),
+or to the end of the drp if it is the last file.
+
+'''3. File type indicators'''
+
+The type of each file inside a drp lump is indicated by a single-byte code. There appear to
+be only 15-16 codes actually in use; nine have been connected to an actual file type.
+''Single-byte file codes in drps''
+
+{|class="wikitable"
+|<B>hex</B>
+|<B>dec</B>
+|<B>ext</B>
+|<B>info</B>
+|<B>found in</B>
+|-
+|01
+|1
+|[[Chrono Cross .drp File Format Notes|drp]]
+|nested drp file
+|any
+|-
+|02
+|2
+|[[Chrono Cross mesh File Format Notes|mesh]]
+|generic mesh
+|any except battle anims
+|-
+|03
+|3
+|[[Chrono Cross timinfo File Format Notes|timinfo]]
+|information about slicing, mirroring, etc., in tim textures
+|any except battle anims
+|-
+|04
+|4
+|[[Standard .tim Format Notes|tim]]
+|tim texture|any except battle anims
+|-
+|05
+|5
+|[[Chrono Cross Music .minst Format Notes|minst]]
+|music instruments
+|any except rooms
+|-
+|07
+|7
+|unknown [1]
+|
+|0018, 1967
+|-
+|0A
+|10
+|unknown[2]
+|
+|any
+|-
+|0B
+|11
+|[[Chrono Cross Model Format Notes|mdl]]
+|model pack
+|rooms and elements
+|-
+|0C
+|12
+|unknown[2]
+|
+|any
+|-
+|10
+|16
+|unknown[3]
+|
+|any
+|-
+|12
+|18
+|unknown
+|
+|rooms
+|-
+|15
+|21
+|
+|model for lens light effects?
+|-
+|16
+|22
+|[[Chrono Cross Music .mseq Format Notes|mseq]]
+|music sequence
+|any except rooms
+|-
+|19
+|25
+|[[Chrono Cross Animations Format|anim]]
+|model animation (cpt pack)
+|battle animations, elements
+|-
+|1A
+|26
+|unknown[4]
+|
+|battle animations, elements
+|-
+|25
+|37
+|[[Chrono Cross LZSS Compression Notes|lzss]]
+|LZSS compressed data
+|2416
+|}
+
+One of these has GOT to be the .atim texture type&mdash;10, 12 and 16 are probably the
+leading candidates&mdash;but I don't know which. Likewise, I would expect another of
+those types to correspond to the .cpt lump type.
+
+[1]Type 7 is potentially a problem. It's used only a handful of times, but in an
+entirely inconsistent manner: two files marked as type 7 are recognizably tbt lumps,
+one is a TIM texture (despite ~TIMs having their own code) and the other 16 are
+inscrutable&mdash;one may be an executable. So the only way to tell what's actually in
+a type 7 file is to open it and check.
+
+[2]Probably relates to graphics somehow.
+
+[3]May relate to meshes.
+
+[4]Associated with things that cause damage, e.g. attack animations, offensive Elements.
+
+[[Chrono Cross|Back to Chrono Cross Index]]

@@ -1,3 +1,9 @@
+"""
+Dynamic resource pack format used in Chrono Cross (PSX)
+
+Implemented according to http://triple-tech.org/Wiki/Drp
+"""
+
 import struct, os, argparse
 
 MAGIC = b'drp\x00\x00\x00\x00\x00'
