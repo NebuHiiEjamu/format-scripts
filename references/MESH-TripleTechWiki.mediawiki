@@ -1,0 +1,27 @@
+Similar to weapon models.
+
+They all have a header that starts with '01 00 00 80', a group of faces and a vertex buffer.
+There're no bones/transforms, so they are just generic mesh type (a weapon model is mesh itself).
+
+They are pretty easy to find, just search for 01 00 00 80, if found, check offset 0x10 from there, there should be a 14 00 00 00 followed by a xx 00 00 00.
+
+The types of faces, however, are much more complex than I expected.
+*'''0x34''' Triangle, has vetex colors of all 3 vertices, a uv map and a list of 3 vertex indices.
+*'''0x3c''' Quad, has vetex colors of all 4 vertices, a uv map and a list of 4 vertex indices.
+*'''0x24''' Triangle, has only 1 vertex color value for all 3 vertices, a uv map and a list of 3 vertex indices.
+*'''0x2c''' Quad, has only 1 vertex color value for all 4vertices, a uv map and a list of 4 vertex indices.
+*'''0x20''' Triangle, has only 1 vertex color value (perhaps always zero and unused) , a list of 3 vertex indices, and a '00 00' at the end which makes me wonder whether it is another vertex, but it could be just a trick to make the total length a multiple of 4.
+*'''0x28''' Quad, has only 1 vertex color value (perhaps always zero and unused) and a list of 4 vertex indices.
+*'''0x30''' Triangle, similar to 0x20, but has 3 vertex colors.
+*'''0x38''' Quad, similar to 0x28, but has 3 vertex colors.
+
+------------------
+
+Breaking the byte down into bits:
+
+7 6 5 4 3 2 1 0
+4: vertex color type
+3: face type (triangle or quad)
+2: texture type (textured or textureless)
+
+[[Chrono Cross|Back to Chrono Cross Index]]

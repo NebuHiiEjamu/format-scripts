@@ -1,0 +1,28 @@
+A set of animation instructions wrapped up in a [[Chrono Cross .cpt File Format Notes|cpt]] file, one subfile per animation. 
+
+Animations are in the following format:
+
+* Frame count (4 bytes)
+* Movable joint bitflags (N bytes = 2 x [number of joints] bits (+ padding?))
+* Frame pointers (4 bytes each)
+* Frames (variable length - first frame is longer than all others, but all others are generally of the same length.)
+
+The movable joint bitflags contain two flags per joint, one controlling rotation, the other translation. The order is joint A rotation, joint A tranlation, joint B rotation, etc...
+
+''Frames of animation (Variable length. See below.)''
+
+Would you believe this is the easy part? The commands given to articulations in the animation are basically identical to the way that the model's "skeleton" was set up in Section 2. Each command will be 6 bytes long, 2 bytes for each axis. The order of the axes is probably XYZ, as it was in section 2, but I have a hard time thinking in 3D, so anyone's welcome to double check that. The values the command can take range between 0xF000 and 0xFFF, or -4096 to 4095. In the case of rotations, 4096 means 360 degrees.
+
+''First frame of animation ( (0xC * # of articulations in the model) bytes)''
+
+The first frame of the animation gives two commands to each articulation of the model, presumably in the order that the articulations were defined in Section 2 of the model. Each articulation has 0xC bytes of commands given to it here - 6 bytes of rotation commands followed by 6 bytes of translation commands. The rotations and translations are relative to the model's "default" position as it was set in Section 2.
+
+''Other frames of animation ( (6 * # of 1s in the binary of the animated articulation identifier) bytes each)''
+
+For each frame after the first, the animation contains only the commands that were defined in the animated articulation identifier, starting with articulation A's rotation, then its translation, then B's rotation, then its translation, etc. For the example of Serge's idle animation given above, the first command in each frame in this section will be the translation command for articulation A, the second command will be the rotation for articulation B, the third command will be the rotation for articulation C, and so on. Note that each command is still relative to the positioning of the articulation in the model's default position (how it was set in Section 2). They are NOT relative to the position of the model in the first frame of the animation or the previous frame of the animation.
+
+''Assorted notes''
+
+The animations in game don't ever seem to give an articulation both rotations and translations in a given animation. In addition, it seems that any articulation that was translated or rotated at all in the first frame of an animation is always marked in the animated articulation identifier, and therefore always appears in frames of animation after the first. Both of these appear to be quirks of either convention or whatever program Square was using to animate the models. The game's engine doesn't seem to have a problem with articulations receiving both rotation and translation commands, and it's very possible to set an articulation's position in the first frame of animation and lock it there for the duration of the animation by not marking it in the animated articulation identifier.
+
+[[Chrono Cross|Back to Chrono Cross Index]]

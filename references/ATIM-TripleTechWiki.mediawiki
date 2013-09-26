@@ -1,0 +1,56 @@
+'''Altered Format TIM'''
+
+The .TIM files used for battle model textures differ from the classic format, preventing 
+tools like ~TIMViewer and ~PSicture from detecting them. Like the [[tim|Classic TIM]], the altered 
+format ~TIMs consist of a HEADER, CLUT, and IMAGE data -- only the headers for each element 
+are different. Thus it is possible to run a bitmap through ~TIMViewer and turn it into a 
+classic TIM, then take the "meat" of the CLUT and IMAGE data from that classic TIM and 
+insert it around the "skeleton" of an existing altered format TIM's headers. The resulting 
+chimera TIM is usable by the game for battle models. This method was used successfully in 
+the Compendium's Chrono Cross Magil/Janus/Magus Patch project.
+
+'''HEADER'''
+ Length is dec(4+#O*4) bytes long
+
+ #O #O #O #O O1 O1 O1 O1 - O2 O2 O2 O2 ...
+
+ Where...
+ #O = Number of Objects in the file. The first object is the CLUT; all 
+      subsequent objects are texture ~IMAGEs.
+ O1 = Pointer to the first Object - the CLUT.
+ O2 = Pointer to the second Object - a texture IMAGE.
+
+'''CLUT'''
+
+ ?? ?? ?? ?? ?? ?? ?? ?? - ?? ?? ?? ?? ?? ?? ?? ?? 
+ RG BS RG BS...
+
+ Where...
+  *?? appear to express all the information contained in a classic TIM CLUT header, but with  
+   an additional 8 bytes of unknown function interspersed. 
+  *RG BS are the red, green, blue, and special transparency values for each color in the CLUT.
+   Note that these byte pairs are read as their constituent bits, so one nybble (half-byte)   
+   doesn't necessarily correspond to each color specification; one letter is used to represent 
+   each nybble for ease of labeling.
+
+For quick reference, the RG BS CLUT data in an Altered Format TIM typically occurs between 
+addresses 0x1C and 0x21C.
+
+
+'''IMAGE'''
+
+ ?? ?? ?? ?? ?? ?? ?? ?? - ?? ?? ?? ?? HW HW HH HH
+ I1 I2 I3 I4 .. ..
+
+  Where...
+  HW = "Half Width"; literally half the value of the image width. If the image 
+       is 128 pixels wide, for example, it's reported here as 0x40.
+  HH = Height. Curiously, unlike the width, the image height is reported 
+       literally. If the image is 128 pixels high, for example, it's reported
+       here as 0x80.
+  I# = Offsets into the CLUT. One byte (8 bits) is required for each pixel 
+       because the TIM header specifies 8 bits-per-pixel.
+
+For quick reference, the I# image data in an Altered Format TIM usually follows address 0x22C.
+
+[[Chrono Cross|Back to Chrono Cross Index]]

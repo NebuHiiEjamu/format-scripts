@@ -1,0 +1,61 @@
+[[Category:File format|T]]
+== Games ==
+
+The '''.TIM''' file format is the standard file format for images on Playstation. It is also used by many PC ports of Playstation games, like [[Resident Evil]], [[Resident Evil 2]], [[Resident Evil 3]], or [[Wipeout]].
+
+== Structure ==
+
+The values are stored in Little-Endian order.
+
+== Header ==
+
+A TIM file contains one uncompressed bitmap. It starts with this header:
+
+<pre><nowiki>
+typedef struct {
+	unsigned long	magic;	/* Constant = 0x10 */
+	unsigned long	type;
+	unsigned long	offset; /* allways Size of Clut data + 12 */
+	unsigned short	Palette Org X;
+	unsigned short	Palette Org Y;
+	unsigned short	palette_colors;
+	unsigned short	nb_palettes;
+} tim_header_t;
+</nowiki></pre>
+
+'type' can be: '0x08' for 4 bits paletted images, '0x09' for 8 bits paletted images, and '0x02' for 16 bits true-colour images.
+'offset' is an offset to start of image data.
+'nb_palettes' is the number of palettes stored in the file, each palette having 'palette_colors' colors.
+
+== Palettes ==
+
+In the case of paletted images, palettes are following the header in the file. Each color is coded in a 16-bits RGB value, which format is A1B5G5R5. There are 'palette_colors'*'nb_palettes' values stored.
+
+== Image header ==
+
+After the optionnal palettes, come the image header. The width is in 16bit words, it means the real width in pixel is width*4 for 4-bits paletted images, width*2 for 8-bits paletted images and width for 16-bits paletted images.
+
+<pre><nowiki>
+typedef struct {
+	unsigned short	width;	/* Width of image in 16-bits words */
+	unsigned short	height; /* Height of image in pixels */
+} tim_size_t;
+</nowiki></pre>
+
+== Image data ==
+
+=== 4 bits images ===
+
+Each pixel is stored in 4 bits (so 2 pixels per byte), bits 7-4 for first pixel, and bits 3-0 for second pixel. The value is an index in a palette stored in the beginning of the file.
+
+=== 8 bits images ===
+
+Each pixel is stored in a byte, which is an index in a palette stored in the beginning of the file.
+
+=== 16 bits images ===
+
+Each pixel is in A1B5G5R5 format.
+
+== External links for format description ==
+
+* [http://wiki.qhimm.com/PSX/TIM_file Qhimm wiki]

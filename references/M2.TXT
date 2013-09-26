@@ -1,0 +1,149 @@
+M2 FILE FORMAT 
+============== 
+The M2 file format stores a file header with many counts and 
+absolute file offsets. Use the file offsets to jump to the data. 
+
+
+typedef struct M2_FILE_HEADER { 
+
+DWORD id;	 // MD20 
+DWORD unknown;	 // 256, could be file offset or version 
+
+DWORD filename_length; 
+DWORD filename_offset; 
+
+DWORD count;	 // 0,1 
+
+DWORD count;	 // count 
+DWORD file_offset;	// file offset 
+
+DWORD num_global_seqs;	 // ?? 
+DWORD global_seq_offset; 
+
+DWORD num_seqs;	 // ?? 
+DWORD seq_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD num_vertices; 
+DWORD vertex_start_offset; 
+
+DWORD num_geosets; 
+DWORD geoset_start_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD num_textures; 
+DWORD texture_start_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD count; 
+DWORD count; 
+DWORD count; 
+DWORD count; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD num_bones;	 // ?? 
+DWORD bone_start_offset; 
+
+DWORD num_materials;	 // ?? 
+DWORD material_start_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+FLOAT min[3]; 
+FLOAT max[3]; 
+FLOAT radius;	// ? 
+
+FLOAT max[3]; 
+FLOAT min[3]; 
+FLOAT radius;	// ? 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+}; 
+
+
+// Need more info. 
+
+typedef struct M2_GEOSET { 
+
+DWORD num_vertices; 
+DWORD file_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD num_vertices; 
+DWORD file_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+
+DWORD count; 
+DWORD file_offset; 
+}; 
+
+
+// File offsets in the geoset chunk points to a list of triangles. 
+// Need more info. 
+
+typedef struct M2_TRIANGLE { 
+
+WORD vertex_indices[3]; 
+}; 
+
+
+// Need more info. 
+
+typedef struct M2_VERTEX { 
+
+FLOAT position[3]; 
+
+DWORD unknown;	 // possible index to something, bone, group, ?? 
+WORD unknown; 
+WORD unknown; 
+
+FLOAT normal[3]; 
+FLOAT tex_coords[2]; 
+
+DWORD unknown; 
+DWORD unknown; 
+}; 
+
+
+typedef struct M2_TEXTURE { 
+
+DWORD unknown; 
+DWORD unknown; 
+DWORD name_length; 
+DWORD name_offset; 
+};  

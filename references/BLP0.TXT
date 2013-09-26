@@ -1,0 +1,73 @@
+The *.blp files are 2D picture files used on Blizzard Entertainment Games. 
+I guess 'blp' stands for "Blizzard Picture". Their main usage is TEXTUREs. 
+They suport different mip-maps (up to 16). 
+
+Those are used on the following Blizzard games: 
+1) "Warcraft III Reign of Chaos BETA" 
+2) "Warcraft III Reign of Chaos" (the retail and the demo version) 
+3) "Frozen Throne BETA" 
+
+Some important things: 
+a) "Warcraft III Reign of Chaos BETA" uses the first version of blp files, also 
+known as "BLP0". 
+b) All other games (for now) are using the "BLP1" version. 
+c) On "Warcraft III Reign of Chaos", they use both JPG-BLPs and Palleted-BLPs. 
+The JPG-BLPs DO NOT get goo compression on Blizzard archive format, "MPQs" since JPEGs are already "huffman compressed". 
+d) On "Frozen Throne BETA" they are only using Palleted-BLPs, since those get better compression on the "MPQs". TheyÃ‚Â´re also using TGAÃ‚Â´s (dunno why).
+
+************************************************************************ * 
+* BLPHEADER * 
+************************************************************************ * 
+Signature As String * 4 'BLP0 or BLP1 
+ImageType As Long '0 for JPGblp, 1 for Paletted 
+hasAlpha As Long '0x8 = has alpha, 0x0 = no alpha 
+Width As Long 'Image Width 
+Height As Long 'Image Height 
+hasTeamColor As Long 'Got values of 3,4,5 here. If use >=5 on 'unit' textures, it won't show the team color. 
+isValid As Long 'Always =>0x1, if 0x0 the model that uses this texture will be messy. 
+
+************************************************************************ * 
+* MIPMAPTABLE (Only present if the file is a BLP1 * 
+************************************************************************ * 
+MipmapOffset(15) As Long 
+MipMapSize(15) As Long 
+
+************************************************************************ * 
+* GENERAL DATA (shared by all mip-maps) * 
+************************************************************************ * 
+If it is a JPEG-Blp we get: 
+JPEGHeaderSize as Long 'The lenght of the JPEGHeaderData. 
+JPEGHeaderData() as Byte 'The JPEGHeaderData. 
+
+If it is a Paletted-Blp, we get: 
+Palette(255) as RGBA 'RGBA is 4 bytes 
+
+************************************************************************ * 
+* MIP-MAP DATA * 
+************************************************************************ * 
+If this is a BLP0 file, then we must open a separate mipmap file (*.bxx), where 'xx' 
+is the mip-map level data. The lenght of the mip-map data is the len of the mip-map 
+file. For an example, to use a "Level 1" mipmap, the file name would be: 
+'name of blp file without .blp' + '.b01' 
+
+If this is a BLP1 file, then we can grab each mip-map data checking the table above. 
+Go to the MipMapOffset and read MipMapSize bytes. 
+
+Small tip: 
+Dont ask me why, but on BLP1 files Blizzard added some extra padding bytes between 
+the JPEGHeader and the first Mip-Map data. Those bytes can be safelly 
+erased if you fix each MipMappoffset entry on MipMapTable (subtract the ammount of 
+erased bytes). 
+
+************************************************************************ * 
+* Reading the mip-map data * 
+************************************************************************ * 
+If it is a JPEG-blp, we need to decompress the mipmap to get a RGBA picture. 
+Get the JPEGHeaderData + MipMapData and you'll have a JPEG-JFIF file. 
+
+If it is a Palleted-blp, we will have 2 bytes for each pixel of the picture: 
+ImageIndex as byte 
+AlphaIndex as byte 
+
+The ImageIndex reffer to the pallete. 
+The AlphaIndex reffer to a standard grayscale pallete. 

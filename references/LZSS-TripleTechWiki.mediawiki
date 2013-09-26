@@ -1,0 +1,68 @@
+'''1. Introduction'''
+
+A few files in Chrono Cross (fewer of them than I would have expected, actually)
+are compressed using a classic version of the LZSS, AKA ~Lempel-Ziv-Storer-Szymanski,
+algorithm. Squeenix was actually rather fond of LZSS during the Playstation period,
+and used it in many of their games, including the Final Fantasy series. The implementation
+of the algorithm in Final Fantasy VII, which is almost-but-not-quite identical to
+the version used in Chrono Cross, is documented in the wiki at qhimm.com
+
+'''2. About LZSS in General'''
+
+LZSS is a type of dictionary encoding technique which attempts to reduce the length
+of a file by replacing some bytes with pointers back to an earlier part of the file,
+plus numbers representing the number of bytes to be copied from this point. A single-bit
+flag is used to indicate whether the next item in the file is a literal byte or a
+pointer + length. Depending on the ratio of pointers to literal bytes, an ~LZSS-encoded
+file may be anywhere from ~12% to 112.5% of the size of the original. (Yes, it can actually
+make the file bigger than it originally was, because it takes 9 bits to encode an 8-bit
+literal byte.)
+
+Trivia: LZSS forms one-half of the compression algorithm most commonly used in zip files.
+
+'''3. Buffer'''
+
+The Chrono Cross LZSS implementation uses a 4K ring buffer&mdash;that is, it stores 4096
+bytes of the decompressed file for use in back references, and when the data reaches
+the end of the buffer, the write loops back around to the beginning. The buffer is
+initialized with zero bytes.
+
+'''4. LZSS File Header'''
+
+Chrono Cross presents LZSS files with a twelve-byte header, which can be divided into
+4-byte sections.
+
+The first four bytes are always 73 73 7A 6C&mdash;"sszl".
+
+The next four bytes are the expected length in bytes of the decoded file, presented as
+a little-endian value. Experimentation suggests that this number may not be 100% accurate.
+
+The purpose of the next four bytes is currently unknown.
+
+'''5. LZSS File Bitstream'''
+
+The remainder of the file must be assessed as a sequence of bits, rather than bytes.
+It contains two types of values: 9-bit literals, and 17-bit references.
+
+A literal consists of a "1" flag bit, followed by eight bits which define a literal byte
+which should be written to the decoded file (and the buffer).
+
+Examples: 1 10110011 is a B3 byte. 1 00000100 is a literal 04 byte.
+
+A reference consists of a "0" flag bit, followed by a 12-bit pointer indicating a position
+in the ring buffer and a 4-bit value indicating the number of bytes to be copied. Since
+copying 0 or 1 bytes wouldn't result in any compression, it's necessary to add 2 to those
+last four bits to get the actual number of copied bytes (this is the main point on which
+the CC and FFVII algorithms differ&mdash;FFVII adds 3). The bytes are read from the buffer
+starting from the position the pointer indicates, and then written to the decoded file
+(and the later part of the buffer).
+
+Referenced bytes should be copied one at a time, because occasionally the compressed file
+will contain instructions to, frex, go back 3 bytes into the buffer and then copy 10 bytes,
+in which case the 4th and subsequent bytes are expected to be set before they're copied.
+
+Examples: 0 000000000100 0010 is an instruction to copy (2 + 2 =) 4 bytes starting from
+position 4 in the buffer. 0 010111101100 0000 is an instruction to copy (0 + 2 =) 2 bytes
+from position 1516 in the buffer.
+
+[[Chrono Cross|Back to Chrono Cross Index]]

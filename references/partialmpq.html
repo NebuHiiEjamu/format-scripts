@@ -1,0 +1,223 @@
+<!doctype html public "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>MPQ Archives - Partial MPQs</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=windows-1250" />
+  <meta name="keywords" content="Ladislav Zezula; MPQ format; StormLib; MPQ Editor; Storm.dll" />
+  <meta name="description" content="Ladislav Zezula - Web homepage" />
+  <meta name="robots" content="INDEX, FOLLOW" />
+  <link rel="stylesheet" type="text/css" href="../../include/styles.css"h />
+</head>
+
+<script language="Javascript" type="text/javascript">
+function RunMailClient(user, domain, ctry)
+{
+    szMailClient = "mail" + "to" + ":" + user + "@" + domain + "." + ctry;
+    document.location = szMailClient;
+}
+function RunMyMailClient()
+{
+    RunMailClient("ladik", "zezula", "net");
+}
+</script>
+
+<body>
+<div class="navigation">
+<!-- Language switches -->
+  <table border="0" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td width="50%" align="center">
+      <p class="image-and-text"><a href="../../cz/mpq/partialmpq.html"h><img src="../../images/czech.gif"s border="0" width="65" height="41" alt="Cesky" /></a>
+      <a href="../../cz/mpq/partialmpq.html"h>Czech</a></p>
+    </td>
+    <td width="50%" align="center">
+      <p class="image-and-text"><a href="../../en/mpq/partialmpq.html"h><img src="../../images/english.gif"s border="0" width="65" height="41" alt="English" /></a>
+      <a href="../../en/mpq/partialmpq.html"h>English</a></p>
+    </td>
+  </tr>
+  </table>
+
+  <p class="menuitem">Utilities</p>
+  <p class="submenuitem"><a href="../../en/fstools/filespy.html"h>FileSpy</a></p>
+  <p class="submenuitem"><a href="../../en/fstools/filetest.html"h>FileTest</a></p>
+  <p class="submenuitem"><a href="../../en/fstools/ioctl.html"h>IOCTL Decoder</a></p>
+  <p class="submenuitem"><a href="../../en/fstools/winsafer.html"h>WinSafer</a></p>
+  <p class="submenuitem"><a href="../../en/fstools/bcdeditor.html"h>BCD Editor</a></p>
+  <p class="submenuitem"><a href="../../en/fstools/bellavista.html"h>BellaVista</a></p>
+  <p class="submenuitem"><a href="../../en/fstools/gamelauncher.html"h>Game Launcher</a></p>
+  <p class="submenuitem"><a href="../../en/fstools/runass.html"h>RunAss</a></p>
+  <p class="submenuitem"><a href="../../en/fstools/kdvmware.html"h>KDVMWARE</a></p>
+  
+  <p class="menuitem">MPQ Archives</p>
+  <p class="submenuitem"><a href="../../en/mpq/main.html"h>Overview</a></p>
+  <p class="submenuitem"><a href="../../en/mpq/mpqformat.html"h>MPQ Format</a></p>
+  <p class="submenuitem"><a href="../../en/mpq/partialmpq.html"h>Partial MPQs</a></p>
+  <p class="submenuitem"><a href="../../en/mpq/patchfiles.html"h>Patches</a></p>
+  <p class="submenuitem"><a href="../../en/mpq/stormdll.html"h>Storm.dll</a></p>
+  <p class="submenuitem"><a href="../../en/mpq/stormlib.html"h>StormLib</a></p>
+  <p class="submenuitem"><a href="../../en/mpq/namebreak.html"h>Name Breaking</a></p>
+  <p class="submenuitem"><a href="../../en/mpq/download.html"h>Download</a></p>
+  <p class="submenuitem"><a href="../../en/mpq/links.html"h>Links</a></p>
+
+  <p class="menuitem">Programming</p>
+  <p class="submenuitem"><a href="../../en/prog/main.html"h>Articles</a></p>
+
+  <p class="menuitem">Contact</p>
+  <p class="submenuitem"><a href="javascript:RunMyMailClient()"h>E-mail</a></p>
+  <p class="submenuitem"><a href="http://www.icq.com/153292074"h>ICQ</a></p>
+    
+</div>
+
+<div class="body">
+<!-- Title -->
+<p class="title">MPQ Archives</p>
+<p class="subtitle">Partial MPQs</p>
+
+<!-- Page content -->
+<h2>Overview</h2>
+<p>Partial files allow to have only small portion of a large, existing file, and download
+the rest when needed. Partial file format is not connected to MPQ format, but it rather serves
+as media for storing a MPQ archive. In fact, it can be used by any file or archive.
+Partial MPQs were first used by the game of World of Warcraft Trial Version. Because
+the amount of data used by the game is large, it would take unreasonable amount of time
+to download the complete MPQs from the internet. To reduce download time, all MPQs are
+created as partial files and only small portion of them is initially available.
+As the player progresses in the game, more and more parts of the MPQ archives is
+downloaded and the file size grows.</p>
+<p>Partial MPQs usually have double extension of .MPQ.part, like interface.MPQ.part.</p>
+
+<h2>Structure of a PART file</h2>
+<p>The general layout of a PART file is the following:</p>
+<ul>
+  <li>PART file header</li>
+  <li>Map of the blocks</li>
+  <li>File blocks</li>
+</ul>
+
+<h2>PART file header</h2>
+<p>Header of PART file used by Blizzard contains signature, game build number, size of one file block,
+and size of the full file. The layout of PART file header is described by the following C structure:</p>
+<pre>// Structure describing the PART file header
+typedef struct <b>_PART_FILE_HEADER</b>
+{
+    // Always set to 2
+    DWORD PartialVersion;
+    
+    // Game build number as ASCIIZ string
+    char  GameBuildNumber[8];
+    
+    // Unknown
+    DWORD Unknown0C;
+    
+    // Unknown
+    DWORD Unknown10;
+    
+    // Seems to contain 0x1C, which is the size of the rest of the header
+    DWORD Unknown14;
+    
+    // Unknown
+    DWORD Unknown18;
+    
+    // Unknown
+    DWORD Unknown1C;
+    
+    // Unknown
+    DWORD Unknown20;
+    
+    // Seems to always be zero
+    DWORD ZeroValue;
+    
+    // Low 32 bits of the file size
+    DWORD FileSizeLo;
+    
+    // High 32 bits of the file size
+    DWORD FileSizeHi;
+    
+    // Size of one file part, in bytes
+    DWORD PartSize;
+
+} <b>PART_FILE_HEADER</b>, *<b>PPART_FILE_HEADER</b>;
+</pre>
+<p>The important members of this structure are <b>FileSizeLo</b>, <b>FileSizeHi</b> and <b>PartSize</b>.
+These members are used to calculate number of parts that the full MPQ is split up to. It is also used
+to calculate number of entries in the part table, that immediately follows the PART file header.</p>
+
+<h2>PART map table</h2>
+<p>PART map table follows the PART file header. This table has one entry per each file PART.
+Total number of entries is calculated using the following formula:</p>
+<pre>PartCount = (DWORD)((FullFileSize + PartSize - 1) / PartSize)</pre>
+<p>where <i>FullFileSize</i> and <i>PartSize</i> is obtained from the PART file header.</p>
+<p>The PART map table is array of the following structures:</p>
+<pre>// Structure describing the entry in the PART map
+typedef struct _PART_FILE_MAP_ENRY
+{
+    // 3 = the part in present in the file
+    DWORD Flags;
+    
+    // Low 32 bits of the part position in the file
+    DWORD BlockOffsLo;                      
+    
+    // High 32 bits of the part position in the file
+    DWORD BlockOffsHi;
+    
+    // Unknown
+    DWORD Unknown0C;
+
+    // Unknown
+    DWORD Unknown10;
+
+} PART_FILE_MAP_ENRY, *PPART_FILE_MAP_ENRY;</pre>
+
+<h2>File Data</h2>
+<p>Following the PART map table, there is array of file parts. Each file part represents a certain amount
+of the file (such as MPQ archive). The size of each part is in the PART file header, except the last part,
+that may be less size. The parts are stored in order how they were downloaded, and don't necessarily follow each other.</p>
+
+<h2>Reading from PART file</h2>
+<p>The following example shows how to read a data from PART file. It demonstrates reading of MPQ header from the MPQ.
+For clarification, we will use the term "virtual offset" for offset within file data stored
+in PART file, and raw offset from offset in the PART file itself. We assume that the MPQ header is at virtual offset 0.
+The example is written for Win32 platform.</p>
+<pre>
+LARGE_INTEGER VirtualOffset = {0};
+LARGE_INTEGER RawFileOffset;
+DWORD PartIndex;
+
+// Verify if the virtual offset doesn't go beyond the virtual file size
+if(VirtualOffset.QuadPart &gt;= VirtualSize.QuadPart)
+{
+    SetLastError(ERROR_HANDLE_EOF);
+    return false;
+}
+
+// Calculate the part index for the given virtual offset
+PartIndex = (DWORD)(VirtualOffset.QuadPart / PartSize);
+
+// Check if that part is available in the file
+if(PartMap[PartIndex].Flags != 3)
+{
+    SetLastError(ERROR_CAN_NOT_COMPLETE);
+    return false;
+}
+  
+// Calculate the offset of data within the file part
+PartOffset = VirtualOffset.LowPart & (PartSize - 1);
+
+// Calculate raw file offset
+RawFileOffset.HighPart = PartMap[PartIndex].BlockOffsHi;
+RawFileOffset.LowPart = PartMap[PartIndex].BlockOffsLo;
+RawFileOffset.QuadPart += PartOffset;
+
+// Read the data from the file. For simplicity, we will not check bounds
+SetFilePointer(hPartFile, RawFileOffset.LowPart, &RawFileOffset.HighPart, FILE_BEGIN);
+ReadFile(hPartFile, pvBuffer, dwNumberOfBytesToRead, &dwNumberOfBytesRead, NULL);
+</pre>  
+
+
+<!-- Page footer -->
+<p class="copyright">Copyright (c) Ladislav Zezula 2010</p>
+
+</div>
+
+</body>
+</html>

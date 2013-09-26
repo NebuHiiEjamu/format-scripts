@@ -1,0 +1,338 @@
+As they exist on the game CD, Chrono Cross character battle models begin with a header that points to various sections, and the sections have their own subheaders and subsections.
+
+Below, the model format is detailed byte-by-byte. Keep in mind that all data in PSX games are represented in "Little Endian" Mode, meaning we humans must employ a byte-order reversal technique to understand it. For example, 06 00 00 00 means 0x06, and F8 4E 00 00 means 0x4EF8.
+
+Also keep in mind that offset ranges are relative, meaning pointer tables report locations that are are a certain number of bytes from the beginning of the current header/subheader. This makes no difference in the overall file header when you're looking at the model data file as excised from the game CD, but it most certainly affects the correct interpretation of subheaders.
+
+<B>Overall Structure</B>
+
+A general overview of how a given battle model's various sections fit together:
+*MODEL HEADER
+*Section 1
+**Section 1 Header
+**"Constructs"
+**UV Map
+**Vertex Pool
+**VDDM (Vestigial Data that Doesn't Matter)
+*Section 2 (Skeleton)
+**Section 2 Header
+**Skeletal Units
+*Section 3 (Affects model shading and placement on the battlefield)
+*Section 4 (Animations)
+*Section 5 (Animation-related)
+*Section 6 (Animation again; only present in a few models)
+
+<B>MODEL HEADER</B>
+
+This is a normal [[cpt]] header with EOF pointer.
+
+<B>Section 1</B>
+
+Section 1 is composed of a number of units we'll call "Constructs" for lack of a better term at the moment. Each "Construct" apparently ties together parts of the model's UV Map, Vertex Pool, the VDDM, and the skeleton defined in Section 2.
+
+<I>Section 1 Header</I>
+
+ #C #C #C #C C1 C1 C1 C1 - C2 C2 C2 C2 ... 
+ ?? ?? ?? ?? ?? ?? ?? ??
+  
+ Where...
+ *#C = Number of Constructs
+ *C1 = Starting Offset of the First Construct, relative to the beginning of Section 1.
+ *C2 = Starting Offset of the Second Construct, relative to the beginning of Section 1.
+ *... = More starting offsets of additional Constructs, relative to the beginning of Section 1.
+ *?? = There are four bytes of data that may be a checksum, followed by an additional four bytes of unknown purpose.
+ (This is similar to the [[cpt]] file header, but the trailing mystery bytes have not been investigated yet.)
+
+<B>Constructs</B><BR>
+Each construct consists of a Header followed by 8-byte mode vertex assignments, 16-byte mode vertex assignments, and a UV Footer.
+
+<I>Construct Header:</I>
+ UM UM UM UM VP VP VP VP - VD VD VD VD 
+  
+ Where...
+ *UM = Offset into the UV Map, relative to the beginning of Section 1; start grabbing texture pieces here.
+ *VP = Offset into the Vertex Pool, relative to the beginning of Section 1; start grabbing vertices here.
+ *VD = Offset into unknown Vestigial Data (the VDDM) that can be zero'd out with absolutely no effect on the model.
+
+ 8-byte mode vertex assignment header format: #A #A #A #A VO VO VO VO
+ 8-byte mode vertex assignment format: NV NV JJ JJ
+   
+ Where...
+ *#A = Number of assignments that follow.
+ *VO = Offset into the Vertex Pool, relative to the VP offset given in the Construct Header.
+ *NV = Next NV Vertices are assigned to JJ JJ.
+ *JJ =Index of the joint to which the body of vertices is assigned.
+
+ 16-byte mode vertex assignment header format: #A #A #A #A VO VO VO VO
+ 16-byte mode vertex assigment format: NV NV 00 00 J1 J1 W1 W1 J2 J2 W2 W2
+   
+ Where...
+ *#A = Number of assignments that follow.
+ *VO = Offset into the Vertex Pool, relative to the VP offset given in the Construct Header.
+ *NV = Next NV Vertices are assigned to J1 J1 and J2 J2.
+ *00 00 = Buffer bytes that are apparently always zero'd. If more than FF FF vertices are assigned, they might come into play, but this should be extremely rare.
+ *J1 = Index of the first joint to which the body of vertices is assigned.
+ *W1 = Weight of the association between NV and J1 for animation purposes.
+ *J2 = Index of the second joint to which the body of vertices is assigned.
+ *W2 = Weight of the association between NV and J2 for animation purposes.
+
+<I>UV Footer</I>: This tells the game engine where to look in the UV Map for the triangles and quads 
+assigned to each construct.
+
+ #E #E #E #E TQ TQ ## ## UO UO UO UO...
+ 
+ Where...
+ *#E = Number of 8-byte entries.
+ *TQ = First two bytes in the 8-byte entry. If it's set to 0x24, the next bytes refer to triangles; if set to 0x2C, the next bytes refer to quads.
+ *## = Number of quads or triangles assigned to the Construct.
+ *UO = UV Map offset from which to start pulling the triangles or quads. Relative to the UM offset given in the construct header.
+ *... = More TQ, ##, and UO information for each additional entry.
+
+<B>UV Map</B>
+
+This part of Section 1 defines how the model texture is split into pieces and wrapped around the 3D structure. It lacks a header, but is split up into distinct Triangle and Quad sections that alternate according to the specifications of the preceding Constructs.
+
+ Triangle UV data and pointer setup: U1 V1 U2 V2 U3 V3 P1 P1 - P2 P2 P3 P3
+ Quad UV data and pointer setup:     U1 V1 U2 V2 U3 V3 U4 V4 - P1 P1 P2 P2 P3 P3 P4 P4
+   
+ Where... 
+ *U? V? are pixel coordinates on the model texture; top-left corner is 0, 0.
+ *P? P? are pointer values that tell the game engine which polygon the texture piece is applied to.
+
+<I>Rules for interpreting quad pointers...</I>
+ Rule for Positive Pointers (as interpreted in hexadecimal)
+ *If you're reading one of the first two pointers, divide the byte pair value by 0x2, then by 0x8. This value is the index for the vertex to which the UV point is mapped.
+ *If you're reading one of the last two pointers, divide the byte pair value by 0x8. This value is the index for the vertex to which the UV point is mapped.
+ *Texture Page Rule...
+  **If the first two vertex pointers end in a "1" instead of a "0" nybble, then the texture piece is pulled from the RIGHT texture. 
+  **If the first two vertex pointers end in a "0" instead of a "1" nybble, then the texture piece is pulled from the LEFT texture.
+
+ Rule for Negative Pointers (as interpreted in hexadecimal)
+ *If you're in one of the first two columns, divide the byte pair value by 0x10. Go backward that number of positions into the pointer data.
+ *If you're in one of the last two columns, divide the byte pair value by 0x8. Go backward that number of positions into the pointer data.
+ *Texture Page Rule...
+  **If the first two vertex pointers end in a "1" instead of a "0" nybble, then the texture piece is pulled from the RIGHT texture. 
+  **If the first two vertex pointers end in a "0" instead of a "1" nybble, then the texture piece is pulled from the LEFT texture.
+
+<I>Rules for interpreting triangle pointers...</I>
+ For triangles, switch pointers such that the first UV coordinate gets the second pointer; the  second UV coordinate gets the third pointer; the third UV coordinate gets the first pointer.  The pointers retain the division properties they had in their original positions.
+
+ Rule for Positive Pointers (hex)
+ *If you're reading the first pointer, divide the byte pair value by 0x8. This value is the vertex index.
+ *If you're in one of the last two columns, divide the byte pair value by 0x2, then by 0x8. This value is the vertex index.
+ *Texture Page Rule...
+  **If the last two vertex pointers end in a "1" instead of a "0" nybble, then the texture piece is pulled from the RIGHT texture. 
+  **If the last two vertex pointers end in a "0" instead of a "1" nybble, then the texture piece is pulled from the LEFT texture.
+
+ Rule for Negative Pointers (hex)
+ *If you're reading the first pointer, divide the byte pair value by 0x8. Go backward that number of positions into the pointer data, adding an invisible position to the three extant positions.
+ *If you're in one of the last two columns, divide the byte pair value by 0x10. Go backward that number of positions into the non-UV data, adding an invisible position to the three extant positions.
+ *Texture Page Rule...
+  **If the last two vertex pointers end in a "1" instead of a "0" nybble, then the texture piece is pulled from the RIGHT texture. 
+  **If the last two vertex pointers end in a "0" instead of a "1" nybble, then the texture piece is pulled from the LEFT texture.
+
+<B>Vertex Pool</B><BR>
+This part of Section 1 defines the 3D structure of the model's arms, legs, etc. It lacks a header, but is split up into distinct 8-byte mode and 16-byte mode sections that alternate according to the specifications of the preceding Constructs. Note that the coordinate byte pairs should be read as signed 16 bit, fixed point 4.12 numbers.
+
+ "8-byte mode" setup...
+ ZZ ZZ YY YY XX XX 00 00 - ZZ ZZ YY YY XX XX 01 00
+ ZZ ZZ YY YY XX XX 02 00 - ZZ ZZ YY YY XX XX 03 00
+  
+ "16-byte mode" setup...
+ ZZ ZZ YY YY XX XX 00 00 - ZZ ZZ YY YY XX XX 00 00
+ ZZ ZZ YY YY XX XX 01 00 - ZZ ZZ YY YY XX XX 01 00
+    
+ Where...
+ *ZZ: Magnitude of coordinate on the up & down axis on the screen plane
+ *YY: Magnitude of coordinate on depth axis; toward or away from you with respect to the screen.
+ *XX: Magnitude of coordinate on right & left axis on the screen plane
+ *00 00: The vertex index; two bytes per vertex. They progress from 00 00 to 01 00, and so on.
+
+ 16-byte mode appears to come into play when a vertex is associated with more than one bone.
+ *The first eight bytes represent the vertex's location relative to the first bone it is associated with.
+ *The second eight bytes represent the vertex's location relative to the second bone it is associated with.
+
+<B>VDDM: Vestigial Data that Doesn't Matter</B><BR>
+Section 1 ends with a curious string of bytes that is mathematically related to the number of vertices, but which does not have an apparent purpose. It can be safely zero'd out (bytes converted to all 00s) with absolutely no detectable effect on the model. This might have been (discarded) vertex colour weighting data.
+
+ Format: Four-byte stride, the fourth byte always being 00.
+ ?? ?? ?? 00 ?? ?? ?? 00 - ?? ?? ?? 00 ?? ?? ?? 00
+ ?? ?? ?? 00 ?? ?? ?? 00 - ?? ?? ?? 00 ?? ?? ?? 00
+ 
+
+<B>Section 2</B>
+
+This is the model's "skeleton," so to speak. Bone lengths are not specified in the model structure, but rather can be inferred from the 3D coordinates given to each joint. Each "bone" consists of a parent joint and a "current joint" to which the 3D coordinates and the rotational data apply.
+
+<I>Section 2 Header</I>
+
+ NB NB NB NB 
+ Where NB = Number of Bones
+
+<B>Bone Format</B>
+
+ PJ PJ PJ PJ XR XR YR YR - ZR ZR XC XC YC YC ZC ZC 
+ BI BI BI BI
+ Where... 
+ *PJ = Index of parent joint (0xFFFF, or -1 if this bone has no parent joint) 
+ *XR = X rotation (range: 0XF000 ~ 0xFFF, or -4096 to 4095, where 4096 = 360 degrees) 
+ *YR = Y rotation (range: 0XF000 ~ 0xFFF, or -4096 to 4095, where 4096 = 360 degrees) 
+ *ZR = Z rotation (range: 0XF000 ~ 0xFFF, or -4096 to 4095, where 4096 = 360 degrees) 
+ *XC = X coordinate in 3D space relative to parent joint 
+ *YC = Y coordinate in 3D space relative to parent joint 
+ *ZC = Z coordinate in 3D space relative to parent joint 
+ *BI = Current bone index (0xFFFF, or -1 if current joint and parent joint do not form a bone)
+
+ The joints specified in Serge's battle model appear to be (in order):
+ *A: Root bone articulation; runs through center of model.
+ *B: Root bone articulation; runs through center of model.
+ *C: Waist articulation.
+ *D: Neck articulation.
+ *E: Bandana tie - left.
+ *F: Bandana tie - right.
+ *G: Upper Shoulder - left.
+ *H: Lower Shoulder - left.
+ *: Elbow - left
+ *: Wrist - left.
+ *K: Upper Shoulder - right.
+ *L: Lower Shoulder - right.
+ *M: Elbow - right.
+ *N: Wrist - right.
+ *O: Weapon.
+ *P: Upper Hip - left.
+ *Q: Lower Hip - left.
+ *R: Knee - left.
+ *S: Ankle - left.
+ *T: Upper Hip - right.
+ *U: Lower Hip - right.
+ *V: Knee - right.
+ *W: Ankle - right.
+ defining 17 bones.
+
+Since the maximum number of joints in a model is 32, some models lack a weapon bone.
+
+[[Number of joints in PC overworld models]].
+
+<B>Section 3</B>
+
+Section 3 is 0x160 bytes long, no matter how complex the model is. It seems to have three distinct segments of constant lengths, so it doesn't have any sort of header.
+
+The first 0x100 bytes of it define points around the model. Each point is made up of 8 byte long chunks which look something like this:
+
+XX XX YY YY ZZ ZZ AA AA
+
+The X's, Y's, and Z's define a coordinate in 3D space like we've already seen in section 2 (as well as pretty much the same thing in section 4). As I've said before, I have problems thinking in 3D, so I may have the axes out of order. (I'm guessing it's the same order as section 2, but I could be wrong.) The A's contain the ID of whatever articulation the coordinate is relative to.
+
+A few of these are in roughly the same position on all the models I've looked at. (Remember that I'm getting this from Serge, Kid, and Guile. These are, notably, humanoid models. Non-humanoids like Poshul or Pip might differ.) Here are the indexes of the coordinates, which are useful in the third segment. Multiply them by 8 to get the actual offsets into section 3:
+*00 - Top of head
+*01 - Front of face
+*02 - Neck
+*03 - Right shoulder
+*04 - Left shoulder
+*05 - Right elbow
+*06 - Left elbow
+*07 - Right hand
+*08 - Left hand
+*09 - Waist
+*0A - Right knee
+*0B - Left knee
+*0C - Right ankle
+*0D - Left ankle
+
+0x0E defines the height the camera sits at when it rotates around the character during their idle animation. Only the vertical component of this one seems to matter.
+
+0x0F defines the distance between the character and whatever enemy they happen to be attacking at the time. Only one of the horizontal axes seems to matter here, and only the magnitude of the distance, not its direction, so you can't do something funny like have the character go charging past their opponent in preparation for an attack. Um, not that that was the first thing I tried or anything. :)
+
+0x10 is located on the upper center of the model's torso.
+
+0x11 is relative to the right hand on Serge, Kid, and Guile, but seems to sit a distance off from it, and I can't tell if it's roughly the same distance or direction. This seems so out of place that part of me wants to believe that this defines a distance like 0x0E and 0x0F, but I haven't been able to determine what it affects, if anything.
+
+The indexes from here are dependent on the model and seem a tad chaotic. On Serge's model, 0x12 sits directly on the weapon articulation. Guile has an entry exactly like this, but it's the very last one in the section at index 0x1F. Kid has no corresponding entry, as she has no weapon articulation. (Or at least, none that I could find. She's got an articulation directly after the right hand where the weapon is on Serge, Guile, and Lynx, but it doesn't seem to actually affect anything.) There's a lot of entries made up entirely of 0s here, with some other entries tossed in towards the end. Only the one Guile has at 0x1F has any significance that I've figured out yet.
+
+I'm going to jump the second segment here and come back to it in a minute. The third segment is fairly short, anyways.
+
+The third segment begins somewhere around 0x120 bytes in. I can't make this segment's length make sense no matter how much I look at it, so I might be missing something, but what I've got seems to make sense. This segment is made of 8 byte long coordinates pretty much exactly like the ones in the first segment, in the form XXXX YYYY ZZZZ AAAA with the exception that the AA AA bytes are now indexes into the list of coordinates defined by segment one. For example, if one coordinate here was 0000 0000 0000 0700 then it would sit directly on the right hand coordinate.
+
+The only part of the third segment that I've managed to assign any importance to is the coordinate that begins 0x1A bytes from the end of section 3. The game attaches the character's weapon to the coordinate defined here. By changing what coordinate in segment 1 this points to, we could, say, make Kid a lefty.
+
+Alright, back to the second segment, which defines the model's shading. Segment 2 is 0x20 bytes long (or possibly 0x40), divided into 0x4 byte chunks. There are 8 chunks, but the amount that actually do anything is dependent on the model&mdash;it is possible that each entry corresponds to a construct from section 1 of the file. For each entry that's actually used, it controls the shading to a specific part of the model. For example, Serge only uses two of them, one of which affects the area of his shirt below the belt, and one of which affects everything else. Kid is similar, having one chunk for her skirt and one chunk for the rest of the model. 
+
+Each chunk is of the form
+
+RR GG BB EF
+
+where RR, GG, and BB define how red, green, and blue, the model should be. The neutral value for these is 0x80. Higher values tint the model more of that color, lower values tint the model less of that color.
+
+E and F are the fun parts. It's one byte, but the 4 highest order bits and the 4 lowest order bits (in other words, the first digit and second digit) control different things.
+
+E controls what texture (if any) gets drawn over the model's normal one. Here's what the individual values do: (A lot of these look the same to me. There may be subtle variations between some of the "identical" ones, but I didn't see them.)
+*0 - Normal
+*1 - Normal
+*2 - Highly reflective
+*3 - Highly reflective
+*4 - Reflective
+*5 - Reflective
+*6 - Reflective
+*7 - Reflective
+*8 - Normal
+*9 - Normal
+*A - Weird texture application (Looks like this could be the model's normal texture, just applied in a weird way.)
+*B - Weird texture application
+*C - Garbage texture  (This one isn't static, it changes every frame. If I had to guess, I'd say it's supposed to point to a texture loaded by an attack or tech, but which is simply garbage normally.)
+*D - Garbage texture
+*E - Garbage texture
+*F - Garbage texture
+
+F controls the model's transparency and a related effect or two. Here comes the list:
+*0 - Solid
+*1 - Invisible
+*2 - Transparent
+*3 - Invisible
+*4 - Solid
+*5 - Invisible
+*6 - Transparent and bright
+*7 - Invisible
+*8 - Solid
+*9 - Invisible
+*A - Transparent and inverted
+*B - Invisible
+*C - Solid
+*D - Invisible
+*E - Transparent and very faint
+*F - Invisible
+
+The coordinate (reference to Section 1) that begins 0x1A bytes from the end of the section defines where the character's weapon is attached.
+
+<B>Section 4</B>
+
+This is the animation data in battle models. Only the Defense, run away, and Element-casting animations are included in the model&mdash;attack animations are stored in external files (as are the animations for overworld models), and tech animations appear to be included in the tech data.
+
+For details of the format, see [[anim]]&mdash;everything is the same right down to the [[cpt]] header.
+
+<B>Section 5</B>
+
+It seems to be related to the model's animations somehow. Possibly execution instructions or something like that? I'm really not sure.
+
+It starts with pointers. 4 bytes containing the number of pointers to follow, then the pointers themselves at 4 bytes each. Fairly standard. The few cases I've checked all show 13 (That's decimal 13, 0x0D.) pointers as the count, with an extra 14th one pointing to the end of the section.
+
+I'll be referring to "blocks of data" here for the sake of convenience. If I say "the first block of data," I mean the stuff that the first pointer points to.
+
+Each block of data corresponds to an animation. For example, Serge's third block goes with his "running at the enemy in preparation for an attack" animation. They all start with a pointer, but this is inevitably 0x10, followed by 0xF 00 bytes of padding, after which the data proper starts. As noted above, I haven't had much luck with this part. Trying to change anything here tends to cause the game to die when it attempts to use the animation. The exception to this is simply zeroing out an entire block. In this case, the character won't attempt the animation at all, and the game will just sort of stop: everything keeps running just fine, but it seems to be waiting for the animation to complete, which never happens. For example, zeroing out Serge's third block and then trying to attack will cause Serge to keep standing there. The attack power selection comes up, but you can't actually choose any of them. Zeroing out the block also causes an error to flash on the screen briefly. It looks like it says something along the lines of "KZ ~ANM-*QSETNUMBER( ) : ~ERR02 4 0", where * is a character I can't make out. Anyone else care to take a stab at it?
+
+The first block is kinda weird. It lacks a pointer at the start, for whatever reason, and in Serge's case is filled with 0x0880 and 0x0000 until the last 4 bytes, which are 0x0E160E16. It seems to have something to do with the attack animations.
+
+One last note: Serge, Kid, and Guile's section 5s are nearly identical. The only difference I can spot is in the first block.
+
+My gut says that the data in the blocks here is probably some form of code or scripting (or maybe encrypted, ick), which would explain why putting random stuff in there causes it to crash. 
+
+This section is also where the eyeblink textures (in tim format) are embedded.
+
+<B>Section 6</B>
+
+This section doesn't exist in most model files, but where it does, it's a DRP file. Its subfiles' names tend to appear in section 5 of the model file. Subtypes 10, 12, 16, and 22 (mseq) appear.
+
+The following PC overworld models have a section 6: Razzly, Fargo, Turnip, Funguy, and Irenes. They all have some effects that either play when walking or during their idle animation.
+
+Some examples of battle models with a section 6 include Mama Komodo, Garai, and the Earth Dragon. It is perhaps not a coincidence that each of these models has a special death animation (Garai raises his swords above his head, Mama Komodo falls over, etc.)
+
+[[Chrono Cross|Back to Chrono Cross Index]]

@@ -1,0 +1,40 @@
+BLP2 FILE FORMAT 
+================ 
+The BLP2 file format stores a file header, mipmap offsets, a palette (if not jpeg), 
+and then the mipmap data. 
+
+The palette data has 256 entries. Each entry is 4 bytes, RGBA, or 1024 bytes total. 
+
+The mipmap data starts off with the largest mipmap, and the smaller mipmaps follow, 
+decreasing by a factor of 2. (128x128 -> 64x64 -> etc..) 
+
+typedef struct BLP2_FILE_HEADER { 
+
+DWORD id;	// BLP0, BLP1, BLP2 
+DWORD type;	// 0=jpeg, or 1=palette or dds 
+
+WORD flags1;	// 0x0001=palette, 0x0002=DDS, 0x0800=DTX3 otherwise DTX1 
+WORD flags2; // unknown 
+
+DWORD width;	// largest mipmap size 
+DWORD height; 
+}; 
+
+typedef struct BLP2_PALETTE { 
+
+BYTE r; 
+BYTE g; 
+BYTE b; 
+BYTE a; 
+}; 
+
+BLP2_FILE_HEADER file_header; 
+BLP2_PALETTE palette[256]; 
+
+DWORD mipmap_offsets[16]; 
+DWORD mipmap_sizes[16]; 
+
+// MIPMAP DATA follows 
+If palette, then each byte is an index (0 to 255) into the palette. 
+If jpeg, data is encoded. You need a JPEG decoder. 
+If dds, data is encoded. You need a DTX1, DT3 decoder. 
