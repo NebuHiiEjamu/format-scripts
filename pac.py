@@ -11,50 +11,50 @@ import struct, os, argparse
 
 class PacFile:
 	def __init__(self):
-		self.filecount = 0 # 4 bytes
-		self.size = 16 # 4 bytes, initial value is 8 pad bytes, filecount, size
-		self.fileoffs = [] # 4 bytes each
+		self.filenum = 0 # 4 bytes
+		self.size = 16 # 4 bytes, initial value is 8 pad bytes, filenum, size
+		self.filepos = [] # 4 bytes each
 		self.filepaths = [] # 32 bytes each
 	
 	def log(self):
-		print('Files: ', self.filecount, ' (', hex(self.filecount), ')')
+		print('Files: ', self.filenum, ' (', hex(self.filenum), ')')
 		print('Size: ', self.size, ' (', hex(self.size), ')')
-		print('File offsets: ', self.fileoffs)
+		print('File offsets: ', self.filepos)
 		print('File paths: ', self.filepaths)
 	
 	def add(self, filepath):
 		if os.path.exists(filepath):
 			si = os.stat(filepath)
-			self.fileoffs.append(self.size)
+			self.filepos.append(self.size)
 			self.filepaths.append(bytes(filepath, 'ascii'))
 			self.size += (36 + si.st_size) # 36 = file offset + path
-			self.filecount += 1
+			self.filenum += 1
 	
 	def pack(self):
 		# 8 pad bytes (?), file count, self size
-		buf = struct.pack('<8xLL', self.filecount, self.size)
+		buf = struct.pack('<8xLL', self.filenum, self.size)
 
 		# calculate offsets
 		si = None
-		offs = 0
+		pos = 0
 		for k, v in enumerate(self.filepaths):
 			if k == 0:
 				# 16 = padding? (8) + file count (4) + pac size (4)
 				# 36 = offset (4) + name length (32)
-				self.fileoffs[k] = 16 + (36 * self.filecount)
+				self.filepos[k] = 16 + (36 * self.filenum)
 				si = os.stat(v)
-				offs = self.fileoffs[k] + si.st_size
+				pos = self.filepos[k] + si.st_size
 			else:
 				si = os.stat(v)
-				self.fileoffs[k] = offs
-				offs += si.st_size
+				self.filepos[k] = pos
+				pos += si.st_size
 		
 		# file offset + path (32 char limit)
-		for i in range(self.filecount):
-			buf += struct.pack('<L32s', self.fileoffs[i], self.filepaths[i])
+		for i in range(self.filenum):
+			buf += struct.pack('<L32s', self.filepos[i], self.filepaths[i])
 		
 		# sequential file content dump
-		for i in range(self.filecount):
+		for i in range(self.filenum):
 			f = open(self.filepaths[i], 'r+b')
 			buf += f.read()
 			f.close()
@@ -62,43 +62,43 @@ class PacFile:
 		return buf
 	
 def unpack(buf):
-	offs = 8 # after padding
+	pos = 8 # after padding
 	pac = PacFile()
 	
 	# Unpack PAC metadata
-	tmp = struct.unpack_from('<LL', buf, offs)
-	pac.filecount = tmp[0] # tmp is always a tuple
+	tmp = struct.unpack_from('<LL', buf, pos)
+	pac.filenum = tmp[0] # tmp is always a tuple
 	pac.size = tmp[1]
-	offs += 8
+	pos += 8
 	
 	# Unpack file metadata
-	for i in range(pac.filecount):
-		tmp = struct.unpack_from('<L32s', buf, offs)
-		pac.fileoffs.append(tmp[0])
+	for i in range(pac.filenum):
+		tmp = struct.unpack_from('<L32s', buf, pos)
+		pac.filepos.append(tmp[0])
 		pac.filepaths.append(tmp[1])
-		offs += 36
+		pos += 36
 	
 	# Unpack files
-	for i in range(pac.filecount):
+	for i in range(pac.filenum):
 		s = str(pac.filepaths[i])[2:].replace('\\x00', '')
 		s = s[:len(s)-1]
-		nextoffs = offs
+		nextpos = pos
 		
 		if ('/' in s) and (not os.path.exists(os.path.dirname(s))):
 			os.makedirs(os.path.dirname(s))
 		
 		# last file in sequence?
-		if i == (pac.filecount-1):
+		if i == (pac.filenum-1):
 			tmp = open(s, 'w+b')
-			tmp.write(buf[offs:])
+			tmp.write(buf[pos:])
 			tmp.close()
 		else:
-			nextoffs = pac.fileoffs[i+1]
+			nextpos = pac.filepos[i+1]
 			tmp = open(s, 'w+b')
-			tmp.write(buf[offs:nextoffs])
+			tmp.write(buf[pos:nextpos])
 			tmp.close
 		
-		offs = nextoffs
+		pos = nextpos
 
 	return pac
 

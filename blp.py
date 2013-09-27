@@ -1,3 +1,9 @@
+"""
+Blizzard image format found in Warcraft III: Reign of Chaos and later titles
+
+Implemented according to Wikipedia along with Xentax and other research
+"""
+
 MAGIC0 = 'BLP0'
 MAGIC1 = 'BLP1'
 MAGIC2 = 'BLP2'
@@ -21,7 +27,7 @@ class Blp1Image:
 		self.height = 0 # 4 bytes
 		self.imgtype = 0 # 4 bytes, 3, 4 = uncomp. index list + alpha list, 5 = uncomp. index list
 		self.imgsubtype = 0 # 4 bytes, 1 = ?
-		self.mipmapoffs = [] # 4 bytes each, 16 items
+		self.mipmappos = [] # 4 bytes each, 16 items
 		self.mipmaplens = [] # 4 bytes each, 16 items
 
 class Blp2Image:

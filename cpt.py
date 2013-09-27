@@ -12,34 +12,34 @@ import struct, os, argparse
 
 class CptFile:
 	def __init__(self):
-		self.filecount = 0 # 4 bytes
-		self.fileoffs = [] # 4 bytes each
+		self.filenum = 0 # 4 bytes
+		self.filepos = [] # 4 bytes each
 		self.eof = None
-		self._offs = 8 # file offset pointer
+		self._pos = 8 # file poset pointer
 		self._filepaths = [] # files to be packed
 	
 	def log(self):
-		print('Files: ', self.filecount)
-		print('File offsets: ', self.fileoffs)
+		print('Files: ', self.filenum)
+		print('File offsets: ', self.filepos)
 		print('End of file: ', self.eof)
 	
 	def add(self, filepath):
 		if os.path.exists(filepath):
 			si = os.stat(filepath)
-			self.fileoffs.append(self._offs)
-			self._offs += (4 + si.st_size)
+			self.filepos.append(self._pos)
+			self._pos += (4 + si.st_size)
 			self._filepaths.append(filepath)
-			self.filecount += 1
+			self.filenum += 1
 	
 	def pack(self):
-		buf = struct.pack('<L', self.filecount)
+		buf = struct.pack('<L', self.filenum)
 		
 		# file offset
-		for i in range(self.filecount):
-			buf += struct.pack('<L', self.fileoffs[i])
+		for i in range(self.filenum):
+			buf += struct.pack('<L', self.filepos[i])
 		
 		# sequential file content dump
-		for i in range(self.filecount):
+		for i in range(self.filenum):
 			f = open(self._filepaths[i], 'r+b')
 			buf += f.read()
 			f.close()
@@ -48,35 +48,35 @@ class CptFile:
 	
 def unpack(buf):
 	cpt = CptFile()
-	offs = 0
+	pos = 0
 	
 	# Unpack CPT metadata
-	tmp = struct.unpack_from('<L', buf, offs)
-	cpt.filecount = tmp[0] # tmp is always a tuple
-	offs += 4
+	tmp = struct.unpack_from('<L', buf, pos)
+	cpt.filenum = tmp[0] # tmp is always a tuple
+	pos += 4
 	
-	# Unpack file offsets
-	for i in range(cpt.filecount):
-		tmp = struct.unpack_from('<L', buf, offs)
-		cpt.fileoffs.append(tmp[0])
-		offs += 4
+	# Unpack file posets
+	for i in range(cpt.filenum):
+		tmp = struct.unpack_from('<L', buf, pos)
+		cpt.filepos.append(tmp[0])
+		pos += 4
 	
 	# Unpack files
-	for i in range(cpt.filecount):
-		nextoffs = offs
+	for i in range(cpt.filenum):
+		nextpos = pos
 		
 		# last file in sequence?
-		if i == (cpt.filecount-1):
+		if i == (cpt.filenum-1):
 			tmp = open(str(i)+'.out', 'w+b')
-			tmp.write(buf[offs:])
+			tmp.write(buf[pos:])
 			tmp.close()
 		else:
-			nextoffs = cpt.fileoffs[i+1]
+			nextpos = cpt.filepos[i+1]
 			tmp = open(str(i)+'.out', 'w+b')
-			tmp.write(buf[offs:nextoffs])
+			tmp.write(buf[pos:nextpos])
 			tmp.close
 		
-		offs = nextoffs
+		pos = nextpos
 
 	return cpt
 

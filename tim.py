@@ -1,3 +1,11 @@
+"""
+PlayStation 1 standard image format
+
+Implemented according to:
+http://triple-tech.org/Wiki/Tim
+http://rewiki.regengedanken.de/wiki/.TIM
+"""
+
 import struct
 
 MAGIC = b'\x10\x00\x00\x00' # 4 bytes, second byte is version, only ver. 0 known to exist

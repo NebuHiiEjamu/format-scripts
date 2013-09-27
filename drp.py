@@ -53,56 +53,55 @@ class DrpInvalid(Exception):
 
 class DynResPack:
 	def __init__(self):
-		self.filecount = 0 # 4 bytes, calculated by yyxx/64
-		self.fileoffs = [] # 4 bytes each
+		self.filenum = 0 # 4 bytes, calculated by yyxx/64
+		self.filepos = [] # 4 bytes each
 		self.filenames = [] # 4 bytes each, padded with 00 if < 4 characters
 		self.filetypes = [] # 1 byte each, see consts above
-		self.filelens = [] # 3 bytes each, equal to 16 times length of file
+		self.filelen = [] # 3 bytes each, equal to 16 times length of file
 		self.filebufs = []
 	
 	def log(self):
-		print('Files: ', self.filecount)
-		print('File offsets: ', self.fileoffs)
+		print('Files: ', self.filenum)
+		print('File offsets: ', self.filepos)
 		print('File names: ', self.filenames)
 		print('File types: ', self.filetypes)
-		print('File sizes: ', self.filelens)
+		print('File sizes: ', self.filelen)
 	
 def unpack(buf):
 	drp = DynResPack()
-	offs = 0
+	pos = 0
 	
 	# validate magic
 	if buf[0:8] != MAGIC:
 		raise DrpInvalid()
-	offs += 8
+	pos += 8
 	
 	# calculate and obtain file count
-	tmp = struct.unpack_from('<H', buf, offs)
-	drp.filecount = int(tmp[0] / 64) # filecount is stored as itself multiplied by 64
-	offs += 4 # skip the 2 pad bytes as well
+	tmp = struct.unpack_from('<H', buf, pos)
+	drp.filenum = int(tmp[0] / 64) # filenum is stored as itself multiplied by 64
+	pos += 4 # skip the 2 pad bytes as well
 	
 	# file offsets
-	for i in range(drp.filecount):
-		tmp = struct.unpack_from('<L', buf, offs)
-		drp.fileoffs.append(tmp[0])
-		offs += 4
+	for i in range(drp.filenum):
+		tmp = struct.unpack_from('<L', buf, pos)
+		drp.filepos.append(tmp[0])
+		pos += 4
 	
 	# file headers + data
-	for i in range(drp.filecount):
-		offs += 4 # pad bytes
-		tmp = struct.unpack_from('<4sB', buf, offs)
+	for i in range(drp.filenum):
+		pos += 4 # pad bytes
+		tmp = struct.unpack_from('<4sB', buf, pos)
 		drp.filenames.append(tmp[0])
 		drp.filetypes.append(tmp[1])
-		offs += 5
-		#tmp = struct.unpack('<3b', buf[offs:offs+3])
-		drp.filelens.append(int.from_bytes(buf[offs:offs+3], byteorder='little', signed=False))
-		drp.filelens[i] = int(drp.filelens[i] / 16) # filelen stored as itself multiplied by 16
-		offs += 3
-		drp.filebufs.append(buf[offs:(offs+drp.filelens[i])])
-		offs += drp.filelens[i]
+		pos += 5
+		drp.filelen.append(int.from_bytes(buf[pos:pos+3], byteorder='little', signed=False))
+		drp.filelen[i] = int(drp.filelen[i] / 16) # filelen stored as itself multiplied by 16
+		pos += 3
+		drp.filebufs.append(buf[pos:(pos+drp.filelen[i])])
+		pos += drp.filelen[i]
 	
 	# write extracted files
-	for i in range(drp.filecount):
+	for i in range(drp.filenum):
 		tmp = open(str(drp.filenames[i])[2:-1].replace('\\x00', '')+fileext(drp.filetypes[i]), 'w+b')
 		tmp.write(drp.filebufs[i])
 		tmp.close()
