@@ -6,10 +6,19 @@ Implemented according to info from http://www.zezula.net
 
 import struct, hashlib
 
-USERDATA_MAGIC = b'MPQ\x1B'
-FILEHEADER_MAGIC = b'MPQ\x1A'
-HET_MAGIC = b'HET\x1A'
-BET_MAGIC = b'BET\x1A'
+USERDATA_MAGIC = 0x1B51504D # MPQ\x1A
+FILEHEADER_MAGIC = 0x1A51504D # MPQ\x1B
+HET_MAGIC = 0x1A544548 # HET\x1A
+BET_MAGIC = 0x1A544542 # BET\x1A
+BITMAP_MAGIC = 0x33767470 # ptv3
+PATCH_MAGIC = b'BSDIFF40' # offset 0x0000
+MD5_MAGIC = b'MD5_'
+XFRM_MAGIC = b'XFRM'
+
+V1LEN = 0x20
+V2LEN = 0x2C
+V3LEN = 0x44 # or greater
+V4LEN = 0xD0
 
 L_N = 0 # neutral/American English
 L_CNTW = 0x404 # Chinese (Taiwan)
@@ -35,6 +44,39 @@ BF_SNGL = 0x01000000 # Instead of being divided to 0x1000-bytes blocks, the file
 BF_DMRK = 0x02000000 # File is a deletion marker, indicating that the file no longer exists. This is used to allow patch archives to delete files present in lower-priority archives in the search chain. The file usually has length of 0 or 1 byte and its name is a hash
 BF_SCRC = 0x04000000 # File has checksums for each sector (explained in the File Data section). Ignored if file is not compressed or imploded.
 BF_EXST = 0x80000000 # Set if file exists, reset when the file was deleted
+
+AF_READ = 0x00000001 # MPQ opened read only
+AF_CHNG = 0x00000002 # tables were changed
+AF_PROT = 0x00000004 # protected MPQs like W3M maps
+AF_CHKS = 0x00000008 # checking sector CRC when reading files
+AF_FIXS = 0x00000010 # need fix size, used during archive open
+AF_IVLF = 0x00000020 # (listfile) invalidated
+AF_IVAT = 0x00000040 # (attributes) invalidated
+
+ATR_CRC32 = 0x00000001 # contains CRC32 for each file
+ATR_FTIME = 0x00000002 # file time for each file
+ATR_MD5 = 0x00000004 # MD5 for each file
+ATR_PATCHBIT = 0x00000008 # patch bit for each file
+ATR_ALL = 0x0000000F
+
+CF_HUFF = 0x01 # Huffman compression, WAVE files only
+CF_ZLIB = 0x02
+CF_PKWR = 0x08 # PKWARE
+CF_BZP2 = 0x10 # BZip2, added in Warcraft 3
+CF_SPRS = 0x20 # Sparse, added in Starcraft 2
+CF_MONO = 0x40 # IMA ADPCM (mono)
+CF_STER = 0x80 # IMA ADPCM (stereo)
+CF_LZMA = 0x12 # added in Starcraft 2, not a combination
+CF_SAME = 0xFFFFFFFF # Same
+
+K_HASH = 0xC3AF3770
+K_BLCK = 0xEC83B3A3
+
+PTYPE1 = b'BSD0' # Blizzard modified version of BSDIFF40 incremental patch
+PTYPE2 = b'BSDP'
+PTYPE3 = b'COPY' # plain replace
+PTYPE4 = b'COUP'
+PTYPE5 = b'CPOG'
 
 class UserData:
 	def __init__(self):
@@ -125,5 +167,47 @@ class Block:
 	def __init__(self):
 		self.filepos = 0 # 4 bytes
 		self.cmplen = 0 # 4 bytes, compressed size
-		self.filelen = 0 # 4 bytes, uncompressed size
+		self.filelen = 0 # 4 bytes, uncompressed size, only valid if block is file, else 0
 		self.flags = 0 # 4 bytes, see BF_* consts
+
+class PatchInfo:
+	def __init__(self):
+		self.size = 0 # 4 bytes, header length in bytes
+		self.flags = 0 # 4 bytes, 0x80000000 = MD5?
+		self.datalen = 0 # 4 bytes, uncomp. size of patch file
+		self.md5 = None # MD5 of entire file after decomp.
+
+class PatchHeader:
+	def __init__(self):
+		self.datalen = 0 # 4 bytes, size of entire patch decomp'd
+		self.beforelen = 0 # 4 bytes, size of file before patch
+		self.afterlen = 0 # 4 bytes, size after patch
+		self.md5blklen = 0 # 4 bytes, size of MD5 block, including magic and size itself
+		self.beforemd5 = None # MD5 of file before patch
+		self.aftermd5 = None # MD5 of file after patch
+		self.xfrmblklen = 0 # 4 bytes, size of XFRM block including header and patch data
+		self.type = 0 # 4 bytes, type of patch (BSD0 or COPY)
+
+class BsDiff40: # if BSD0
+	def __init__(self):
+		self.ctrlblklen = 0 # 8 bytes, offset 0x0008, size of CTRL block in bytes
+		self.datablklen = 0 # 8 bytes, offset 0x0010, size of DATA block in bytes
+		self.afterlen = 0 # 8 bytes, offset 0x0018, size of file after patch, in bytes
+		self.ctrl = [] # 0x0C bytes each, ctrlblklen items, offset 0x0020
+		self.data = None
+		self.extra = None # extra bytes beyond DATA block until end of patch
+
+class Bitmap:
+	def __init__(self):
+		self.unknown = 3 # 4 bytes, always 3?
+		self.gamebuild = 0 # 4 bytes, game build # for MPQ
+		self.mapposlo = 0 # 4 bytes, lo map offset
+		self.mapposhi = 0 # 4 bytes
+		self.blklen = 0 # 4 bytes, size of one block
+
+class Archive:
+	def __init__(self):
+		self.stream = None
+		self.udpos = 0 # 8 bytes, user data offset
+		self.hdrpos = 0 # 8 bytes, header offset
+		self.patch = None # patch archive, if any

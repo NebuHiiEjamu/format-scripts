@@ -14,7 +14,7 @@ BPP4 = 0x08 # 4 bits paletted
 BPP8 = 0x09 # 8 bits paletted
 BPP16 = 0x02 # 16 bits true colour
 
-class TimImage:
+class Image:
 	def __init__(self):
 		self.bpp = 0 # 4 bytes
 		self.clutlen = 0 # 4 bytes, length of entire CLUT (including header), always palx*paly*2

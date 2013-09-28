@@ -10,7 +10,7 @@ After that, the files are packed in one after the other.
 
 import struct, os, argparse
 
-class CptFile:
+class Archive:
 	def __init__(self):
 		self.filenum = 0 # 4 bytes
 		self.filepos = [] # 4 bytes each
@@ -47,7 +47,7 @@ class CptFile:
 		return buf
 	
 def unpack(buf):
-	cpt = CptFile()
+	cpt = Archive()
 	pos = 0
 	
 	# Unpack CPT metadata
@@ -99,7 +99,7 @@ def main():
 		f.close()
 	
 	if (args.c != None) and (args.x == None):
-		p = CptFile()
+		p = Archive()
 		for i in range(len(args.c)):
 			p.add(args.c[i])
 		f = open(args.o, 'w+b')

@@ -9,7 +9,7 @@ another.
 
 import struct, os, argparse
 
-class PacFile:
+class Archive:
 	def __init__(self):
 		self.filenum = 0 # 4 bytes
 		self.size = 16 # 4 bytes, initial value is 8 pad bytes, filenum, size
@@ -63,7 +63,7 @@ class PacFile:
 	
 def unpack(buf):
 	pos = 8 # after padding
-	pac = PacFile()
+	pac = Archive()
 	
 	# Unpack PAC metadata
 	tmp = struct.unpack_from('<LL', buf, pos)
@@ -121,7 +121,7 @@ def main():
 		f.close()
 	
 	if (args.c != None) and (args.x == None):
-		p = PacFile()
+		p = Archive()
 		for i in range(len(args.c)):
 			p.add(args.c[i])
 		f = open(args.o, 'w+b')

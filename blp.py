@@ -8,18 +8,18 @@ MAGIC0 = 'BLP0'
 MAGIC1 = 'BLP1'
 MAGIC2 = 'BLP2'
 
-class BlpJpeg: # if BLP compression = 0
+class Jpeg: # if BLP compression = 0
 	def __init__(self):
 		self.jpghdrlen = 0 # 4 bytes, JPEG header length
 		self.jpghdr = [] # byte array of jpghdrlen
 		self.mipmap = [] # array of JPEG data byte arrays, 16 items
 
-class BlpUncmpIdxAlpha: # if BLP imgtype = 3 or 4
+class UncmpIdxAlpha: # if BLP imgtype = 3 or 4
 	def __init__(self):
 		self.palette = [] # ? bytes each, 256 items
 		self.mipmap = [] # 16 items, each entry is 2 byte arrays, both are cur. width * cur. height in length
 
-class Blp1Image:
+class Format1:
 	def __init__(self):
 		self.compression = 0 # 4 bytes, 0 = JPEG compression, 1 = uses palettes (uncompressed)
 		self.flags = 0 # 4 bytes, 8 = uses alpha channel?
@@ -30,7 +30,7 @@ class Blp1Image:
 		self.mipmappos = [] # 4 bytes each, 16 items
 		self.mipmaplens = [] # 4 bytes each, 16 items
 
-class Blp2Image:
+class Format2:
 	def __init__(self):
 		self.type = 0 # 4 bytes, 0 = JPEG compression, 1 = uncompressed or DirectX compression
 		self.encoding = 0 # 1 byte, 1 = uncompressed, 2 = DirectX compression

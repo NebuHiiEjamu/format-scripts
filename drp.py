@@ -48,10 +48,10 @@ def fileext(ft):
 	else:
 		return '.out'
 
-class DrpInvalid(Exception):
+class Invalid(Exception):
 	pass
 
-class DynResPack:
+class File:
 	def __init__(self):
 		self.filenum = 0 # 4 bytes, calculated by yyxx/64
 		self.filepos = [] # 4 bytes each
@@ -68,12 +68,12 @@ class DynResPack:
 		print('File sizes: ', self.filelen)
 	
 def unpack(buf):
-	drp = DynResPack()
+	drp = File()
 	pos = 0
 	
 	# validate magic
 	if buf[0:8] != MAGIC:
-		raise DrpInvalid()
+		raise Invalid()
 	pos += 8
 	
 	# calculate and obtain file count

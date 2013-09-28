@@ -7,7 +7,7 @@ Implemented according to http://triple-tech.org/Wiki/Atim
 # incomplete because of unknown interspersed values in CLUT
 import struct
 
-class AtimCLUT:
+class Clut:
 	def __init__(self):
 		self.length = 0 # 4 bytes, length of entire block (including header), always x*y*2
 		self.x = 0 # 2 bytes
@@ -16,7 +16,7 @@ class AtimCLUT:
 		self.numpals = 0 # 2 bytes
 		self.rgbs = [] # 2 bytes each: red, green, blue, transparency, for each colour, read as nybbles, usually located between 0x1C-0x21C in ATIM
 
-class AtimImage:
+class Image:
 	def __init__(self):
 		self.length = 0 # 4 bytes, length of entire block (including header), always x*y*2
 		self.x = 0 # 2 bytes
@@ -27,10 +27,10 @@ class AtimImage:
 		self.halfy = 0 # 2 bytes, deceptive, full value of y, not half value, unlike x
 		self.pxlpos = [] # 1 byte each, offset into CLUT, usually follows address 0x22C
 
-class AlteredTIM:
+class File:
 	def __init__(self):
 		self.objnum = 0 # 4 bytes
 		self.clutpos = 0 # 4 bytes
 		self.imgpos = [] # 4 bytes each
-		self.clut = AtimCLUT()
+		self.clut = None
 		self.images = []
