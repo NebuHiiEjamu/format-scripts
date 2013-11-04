@@ -4,13 +4,14 @@ Mopaq archive format found in Blizzard titles Diablo 1.0 and later
 Implemented according to info from http://www.zezula.net
 """
 
-import struct, hashlib
+import struct, hashlib, sys
+from collections import namedtuple
 
-USERDATA_MAGIC = 0x1B51504D # MPQ\x1A
-FILEHEADER_MAGIC = 0x1A51504D # MPQ\x1B
-HET_MAGIC = 0x1A544548 # HET\x1A
-BET_MAGIC = 0x1A544542 # BET\x1A
-BITMAP_MAGIC = 0x33767470 # ptv3
+USERDATA_MAGIC = b'MPQ\x1A'
+FILEHEADER_MAGIC = b'MPQ\x1B'
+HET_MAGIC = b'HET\x1A'
+BET_MAGIC = b'BET\x1A'
+BITMAP_MAGIC = b'ptv3'
 PATCH_MAGIC = b'BSDIFF40' # offset 0x0000
 MD5_MAGIC = b'MD5_'
 XFRM_MAGIC = b'XFRM'
@@ -78,136 +79,146 @@ PTYPE3 = b'COPY' # plain replace
 PTYPE4 = b'COUP'
 PTYPE5 = b'CPOG'
 
-class UserData:
-	def __init__(self):
-		self.size = 0 # 4 bytes, max size of user data
-		self.hdrpos = 0 # 4 bytes, header offset
-		self.hdrlen = 0 # 4 bytes, header size
+UserDataHeader = namedtuple('UserDataHeader', [
+	'magic',
+	'data_size',
+	'header_offset',
+	'header_size'])
+UserDataHeader.format = '<4s3L'
 
-class Header: # must begin at file offs. aligned to 512 (0x200)
-	def __init__(self):
-		self.hdrlen = 0 # 4 bytes, header size
-		self.archlen = 0 # 4 bytes, archive size, deprecated in ver. 2, calced as length from beg. of archive to end of hash table/block table/ext. block table (whichever is largest)
-		self.fmtver = 0 # 2 bytes, 0 = up to WoW:BC, 1 = WoW:BC-WoW:CT beta, 2/3 = WoW:CT beta and later
-		self.blklen = 0 # 2 bytes, block size
-		self.hashtblpos = 0 # 4 bytes, hash table offset
-		self.blktblpos = 0 # 4 bytes, block table offset
-		self.hashtbllen = 0 # 4 bytes, hash table entries, must be power of 2 and: ver 1 = must be < 2^16, ver 2 = must be < 2^20
-		self.blktbllen = 0 # 4 bytes, block table entries
-		# version 2
-		self.hiblktblpos = 0 # 8 bytes, offset to array of 16 bit hi parts of file offsets
-		self.hashtblposhi = 0 # 2 bytes, hi 16 bits of hash table offset for large archives
-		self.blktblposhi = 0 # 2 bytes, hi 16 bits of block table offset for large archives
-		# version 3
-		self.archlen64 = 0 # 8 bytes, 64 bit size of archive
-		self.bettblpos = 0 # 8 bytes, BET table offset
-		self.hettblpos = 0 # 8 bytes, HET table offset
-		# version 4
-		self.hashtbllen64 = 0 # 8 bytes, compressed size of hash table
-		self.blktbllen64 = 0 # 8 bytes, compressed size of block table
-		self.hiblktbllen = 0 # 8 bytes, compressed size of hi block table
-		self.hettbllen = 0 # 8 bytes, compressed size of HET table
-		self.bettbllen = 0 # 8 bytes, comp. size of BET table
-		self.rawchunklen = 0 # 4 bytes, raw chunk size
-		self.blktblmd5 = None
-		self.hashtblmd5 = None
-		self.hiblktblmd5 = None
-		self.bettblmd5 = None
-		self.hettblmd5 = None
-		self.md5 = None # MD5 of the header from magic to hettblmd5
+Header = namedtuple('Header', [
+	'magic',
+	'header_size',
+	'archive_size', # archive size, deprecated in ver. 2, calced as length from beg. of archive to end of hash table/block table/ext. block table (whichever is largest)
+	'version', # 0 = up to WoW:BC, 1 = WoW:BC-WoW:CT beta, 2/3 = WoW:CT beta and later
+	'block_size',
+	'hash_table_pos',
+	'block_table_pos',
+	'hash_table_size',
+	'block_table_size'])
+Header.format = '<4s2L2H4L'
 
-class HashEntryTable:
-	def __init__(self):
-		self.version = 1 # 4 bytes, always 1?
-		self.datalen = 0 # 4 bytes, size of contained table
-		self.size = 0 # 4 bytes, size of entire hash table, including header
-		self.filenum = 0 # 4 bytes, # of files in MPQ
-		self.hashtbllen = 0 # 4 bytes, hash table size in bytes
-		self.hashentrylen = 0 # 4 bytes, hash entry size in bits
-		self.totalidxlen = 0 # 4 bytes, total size of file index in bits
-		self.idxlenext = 0 # 4 bytes, extra bits in file index
-		self.idxlen = 0 # 4 bytes, file index size in bits
-		self.blktbllen = 0 # 4 bytes, block index subtable size in bytes
-		self.hashtbl = [] # 1 byte each, hashtbllen items
+Header2 = namedtuple('Header2', [
+	'hi_block_table_pos',
+	'hash_table_pos_hi',
+	'block_table_pos_hi'])
+Header2.format = '<Q2H'
 
-class BlockEntryTable:
-	def __init__(self):
-		self.version = 1 # 4 bytes, always 1?
-		self.datalen = 0 # 4 bytes, size of contained table
-		self.size = 0 # 4 bytes
-		self.filenum = 0 # 4 bytes
-		self.pos08 = 0x10 # 4 bytes, unknown, always 0x10?
-		self.entrylen = 0 # 4 bytes, size of 1 table entry in bits
-		self.bifilepos = 0 # 4 bytes, bit index of file position within entry record
-		self.bifilelen = 0 # 4 bytes
-		self.bicmplen = 0 # 4 bytes, file compressed size in entry rec.
-		self.biflagidx = 0 # 4 bytes
-		self.biunknown = 0 # 4 bytes
-		self.bcfilepos = 0 # 4 bytes, bit size of file pos. in entry rec.
-		self.bcfilelen = 0 # 4 bytes
-		self.bccmplen = 0 # 4 bytes
-		self.bcflagidx = 0 # 4 bytes
-		self.bcunknown = 0 # 4 bytes
-		self.totalhashlen = 0 # 4 bytes, total size of BET hash
-		self.hashlenext = 0 # 4 bytes, extra bits # in BET hash
-		self.hashlen = 0 # 4 bytes, BET hash size in bits
-		self.hasharraylen = 0 # 4 bytes, size of BET hashes array in bytes
-		self.flagnum = 0 # 4 bytes, # of flags in following array
-		self.flags = [] # 4 bytes each, flagnum items
+Header3 = namedtuple('Header3', [
+	'archive_size64',
+	'bet_table_pos',
+	'het_table_pos'])
+Header3.format = '<Q3'
 
-class Hash:
-	def __init__(self):
-		self.name1 = 0 # 4 bytes, hash of full file name part A
-		self.name2 = 0 # 4 bytes, hash of full file name part B
-		self.lang = 0 # 2 bytes, language of file, see L_* consts above
-		self.platform = 0 # 2 bytes, platform file is used for, 0 = default platform, no other values?
-		self.blkidx = 0 # 4 bytes, 0xFFFFFFFF = empty and was always empty (terminate search), 0xFFFFFFFE = empty but once was valid file (don't terminate search)
+Header4 = namedtuple('Header4', [
+	'hash_table_size64',
+	'block_table_size64',
+	'hi_block_table_size',
+	'het_table_size',
+	'bet_table_size',
+	'raw_chunk_size'])
+Header4.format = '<Q5L'
 
-class Block:
-	def __init__(self):
-		self.filepos = 0 # 4 bytes
-		self.cmplen = 0 # 4 bytes, compressed size
-		self.filelen = 0 # 4 bytes, uncompressed size, only valid if block is file, else 0
-		self.flags = 0 # 4 bytes, see BF_* consts
+if sys.byteorder == 'little':
+	Hash = namedtuple('Hash', [
+		'name1',
+		'name2',
+		'locale',
+		'platform',
+		'block_index'])
+else:
+	Hash = namedtuple('Hash', [
+		'name1',
+		'name2',
+		'platform',
+		'locale',
+		'block_index'])
+Hash.format = '<2L2HL'
 
-class PatchInfo:
-	def __init__(self):
-		self.size = 0 # 4 bytes, header length in bytes
-		self.flags = 0 # 4 bytes, 0x80000000 = MD5?
-		self.datalen = 0 # 4 bytes, uncomp. size of patch file
-		self.md5 = None # MD5 of entire file after decomp.
+Block = namedtuple('Block', [
+	'file_pos',
+	'comp_size',
+	'uncomp_size',
+	'flags'])
+Block.format = '<4L'
 
-class PatchHeader:
-	def __init__(self):
-		self.datalen = 0 # 4 bytes, size of entire patch decomp'd
-		self.beforelen = 0 # 4 bytes, size of file before patch
-		self.afterlen = 0 # 4 bytes, size after patch
-		self.md5blklen = 0 # 4 bytes, size of MD5 block, including magic and size itself
-		self.beforemd5 = None # MD5 of file before patch
-		self.aftermd5 = None # MD5 of file after patch
-		self.xfrmblklen = 0 # 4 bytes, size of XFRM block including header and patch data
-		self.type = 0 # 4 bytes, type of patch (BSD0 or COPY)
+PatchInfo = namedtuple('PatchInfo', [
+	'length',
+	'flags',
+	'uncomp_size',
+	'md5'])
+PatchInfo.format = '<3L16s'
 
-class BsDiff40: # if BSD0
-	def __init__(self):
-		self.ctrlblklen = 0 # 8 bytes, offset 0x0008, size of CTRL block in bytes
-		self.datablklen = 0 # 8 bytes, offset 0x0010, size of DATA block in bytes
-		self.afterlen = 0 # 8 bytes, offset 0x0018, size of file after patch, in bytes
-		self.ctrl = [] # 0x0C bytes each, ctrlblklen items, offset 0x0020
-		self.data = None
-		self.extra = None # extra bytes beyond DATA block until end of patch
+PatchHeader = namedtuple('PatchHeader', [
+	'header_magic',
+	'size',
+	'size_before_patch',
+	'size_after_patch',
+	'md5',
+	'md5_block_size',
+	'md5_before_patch',
+	'md5_after_patch',
+	'xfrm_magic',
+	'xfrm_block_size',
+	'type'])
+PatchHeader.format = '<4s3L4sL16s16s4sL4s'
 
-class Bitmap:
-	def __init__(self):
-		self.unknown = 3 # 4 bytes, always 3?
-		self.gamebuild = 0 # 4 bytes, game build # for MPQ
-		self.mapposlo = 0 # 4 bytes, lo map offset
-		self.mapposhi = 0 # 4 bytes
-		self.blklen = 0 # 4 bytes, size of one block
+FileEntry = namedtuple('FileEntry', [
+	'byte_offset',
+	'file_time',
+	'bet_hash',
+	'hash_index',
+	'het_index',
+	'file_size',
+	'comp_size',
+	'flags',
+	'locale',
+	'platform',
+	'crc32',
+	'md5'])
+FileEntry.format = '<3Q5L2HL16s'
 
-class Archive:
-	def __init__(self):
-		self.stream = None
-		self.udpos = 0 # 8 bytes, user data offset
-		self.hdrpos = 0 # 8 bytes, header offset
-		self.patch = None # patch archive, if any
+ExtTable = namedtuple('ExtTable', [
+	'magic',
+	'version',
+	'size'])
+ExtTable.format = '<4s2L'
+
+Bitmap = namedtuple('Bitmap', [
+	'magic',
+	'unknown',
+	'game_build_num',
+	'map_offset_lo',
+	'map_offset_hi',
+	'block_size'])
+Bitmap.format = '<4s5L'
+
+HashEntryTable = namedtuple('HashEntryTable', [
+	'and_mask',
+	'or_mask',
+	'index_size_total',
+	'index_size_extra',
+	'index_size',
+	'file_num',
+	'hash_table_size',
+	'hash_bit_size'])
+HashEntryTable.format = '<2Q6L'
+
+BlockEntryTable = namedtuple('BlockEntryTable', [
+	'table_entry_size',
+	'bit_index_file_pos',
+	'bit_index_file_size',
+	'bit_index_comp_size',
+	'bit_index_flag_index',
+	'bit_index_unknown',
+	'bit_count_file_pos',
+	'bit_count_file_size',
+	'bit_count_comp_size',
+	'bit_count_flag_index',
+	'bit_count_unknown',
+	'bet_hash_size_total',
+	'bet_hash_size_extra',
+	'bet_hash_size',
+	'file_num',
+	'flag_num'])
+BlockEntryTable.format = '<16L'
